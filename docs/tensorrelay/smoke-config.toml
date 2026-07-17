@@ -1,5 +1,13 @@
 # Smoke-test config: stock grok harness -> TensorRelay Node-Local Inference API.
 # Copy to $GROK_HOME/config.toml (see SMOKE-TEST.md).
+#
+# Run it with (verified 2026-07-17):
+#   XAI_API_KEY=dummy-local \                 # satisfies the login gate (kill-list #1)
+#   GROK_MODELS_BASE_URL=http://127.0.0.1:8677/v1 \  # redirects catalog prefetch off api.x.ai (#2b)
+#   GROK_HOME=/tmp/grok-smoke grok -m tensorrelay -p "…"
+# Without GROK_MODELS_BASE_URL the harness still prefetches api.x.ai/v1/models at
+# startup even though the model below is fully local — the model base_url does NOT
+# govern the catalog fetch. The fork will fix both; these env vars are the interim.
 
 [model.tensorrelay]
 model = "tensorrelay"                       # ignored by the runtime; the cluster's model answers
