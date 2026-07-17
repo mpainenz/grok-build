@@ -57,7 +57,12 @@ jobs:
       # the just-installed binary so Windows doesn't trip over the wrapper.
       - name: Pin PROTOC to the installed binary
         shell: bash
-        run: echo "PROTOC=$(command -v protoc)" >> "$GITHUB_ENV"
+        run: |
+          P="$(command -v protoc)"
+          # Windows: the Rust build script does PathBuf::from($PROTOC); a
+          # git-bash unix path (/c/...) won't resolve, so convert to native.
+          if [ "$RUNNER_OS" = "Windows" ]; then P="$(cygpath -w "$P")"; fi
+          echo "PROTOC=$P" >> "$GITHUB_ENV"
 
       # Two build scripts (xai-grok-tools, xai-grok-shell) otherwise DOWNLOAD
       # ripgrep from github.com at build time — flaky and offline-hostile.
