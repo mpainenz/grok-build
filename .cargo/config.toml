@@ -58,11 +58,14 @@ rustflags = [
     "-C", "link-arg=-Wl,-z,relro,-z,now,-z,noexecstack",
 ]
 
+# link-arg=/DEBUG:NONE: release builds otherwise emit a PDB whose public-symbol
+# stream overflows on this large workspace (LNK4319, from very long Rust symbol
+# names), failing the link. A shipped binary needs no PDB; suppress it.
 [target.x86_64-pc-windows-msvc]
-rustflags = ["-C", "force-unwind-tables=yes", "-C", "target-feature=+crt-static"]
+rustflags = ["-C", "force-unwind-tables=yes", "-C", "target-feature=+crt-static", "-C", "link-arg=/DEBUG:NONE"]
 
 [target.aarch64-pc-windows-msvc]
-rustflags = ["-C", "force-unwind-tables=yes", "-C", "target-feature=+crt-static"]
+rustflags = ["-C", "force-unwind-tables=yes", "-C", "target-feature=+crt-static", "-C", "link-arg=/DEBUG:NONE"]
 
 
 # jemalloc page size for Apple Silicon (macOS aarch64 uses 16KB pages = 2^14).
