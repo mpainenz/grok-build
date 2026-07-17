@@ -43,6 +43,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # xai-grok-tools-api/build.rs compiles protobufs; the checked-in
+      # bin/protoc is a Linux x64 binary (wrong on the Windows runner, and not
+      # reliably executable after checkout), so install a real protoc in PATH
+      # on both platforms.
+      - name: Install protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ github.token }}
+
       # rust-toolchain.toml pins the channel (1.92.0); rustup honours it.
       - name: Cargo cache
         uses: actions/cache@v4
