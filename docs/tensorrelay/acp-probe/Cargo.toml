@@ -1,0 +1,23 @@
+# Detached from the grok workspace on purpose (empty [workspace]) so it never
+# entangles upstream's build graph or rebases. Seam-proving tool for
+# TensorRelay's Agent surface (tensorrelay ADR-0030): drives `grok agent stdio`
+# over ACP the way the Tauri app will, and prints what the handshake returns.
+[package]
+name = "tr-acp-probe"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]
+
+[[bin]]
+name = "tr-acp-probe"
+path = "src/main.rs"
+
+[dependencies]
+agent-client-protocol = { version = "=0.10.4", features = ["unstable"] }
+tokio = { version = "1", features = ["rt", "macros", "process", "io-util", "time"] }
+tokio-util = { version = "0.7", features = ["compat"] }
+futures = "0.3"
+async-trait = "0.1"
+serde_json = "1"
+anyhow = "1"
