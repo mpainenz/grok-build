@@ -1,0 +1,11 @@
+# Smoke-test config: stock grok harness -> TensorRelay Node-Local Inference API.
+# Copy to $GROK_HOME/config.toml (see SMOKE-TEST.md).
+
+[model.tensorrelay]
+model = "tensorrelay"                       # ignored by the runtime; the cluster's model answers
+base_url = "http://127.0.0.1:8677/v1"       # must include /v1 (naive join upstream)
+name = "TensorRelay Cluster"
+context_window = 131072                     # agentic catalog floor; do NOT rely on grok's 200k default
+
+[models]
+default = "tensorrelay"
