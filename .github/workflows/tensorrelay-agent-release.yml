@@ -94,6 +94,12 @@ jobs:
           restore-keys: tr-agent-${{ matrix.os }}-
 
       - name: Build harness (release)
+        # The workspace release profile sets incremental=true, which on Windows
+        # MSVC emits an incremental-link PDB; 257 objects with long Rust symbol
+        # names overflow it (LNK4319: PDB limit hit). Disable incremental for
+        # this clean build — it also builds a smaller, more deterministic binary.
+        env:
+          CARGO_INCREMENTAL: "0"
         run: cargo build --release -p xai-grok-pager-bin
 
       - name: Package (Linux)
