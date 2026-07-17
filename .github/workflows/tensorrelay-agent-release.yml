@@ -59,6 +59,24 @@ jobs:
         shell: bash
         run: echo "PROTOC=$(command -v protoc)" >> "$GITHUB_ENV"
 
+      # Two build scripts (xai-grok-tools, xai-grok-shell) otherwise DOWNLOAD
+      # ripgrep from github.com at build time — flaky and offline-hostile.
+      # Point their bundle-override env vars at the runner's preinstalled rg so
+      # the build is deterministic and makes no network fetch here.
+      - name: Provide ripgrep for the harness build
+        shell: bash
+        run: |
+          RG="$(command -v rg || true)"
+          if [ -z "$RG" ]; then
+            if [ "$RUNNER_OS" = "Linux" ]; then sudo apt-get update -qq && sudo apt-get install -y ripgrep; fi
+            if [ "$RUNNER_OS" = "Windows" ]; then choco install ripgrep -y --no-progress; fi
+            RG="$(command -v rg)"
+          fi
+          if [ "$RUNNER_OS" = "Windows" ]; then RG="$(cygpath -w "$RG")"; fi
+          echo "using rg: $RG"
+          echo "GROK_TOOLS_BUNDLE_RG_PATH=$RG" >> "$GITHUB_ENV"
+          echo "GROK_SHELL_BUNDLE_RG_PATH=$RG" >> "$GITHUB_ENV"
+
       # rust-toolchain.toml pins the channel (1.92.0); rustup honours it.
       - name: Cargo cache
         uses: actions/cache@v4
