@@ -52,6 +52,13 @@ jobs:
         with:
           repo-token: ${{ github.token }}
 
+      # The build script checks $PROTOC first, then a checked-in bin/protoc
+      # (a Linux-only dotslash wrapper), then PATH. Point $PROTOC straight at
+      # the just-installed binary so Windows doesn't trip over the wrapper.
+      - name: Pin PROTOC to the installed binary
+        shell: bash
+        run: echo "PROTOC=$(command -v protoc)" >> "$GITHUB_ENV"
+
       # rust-toolchain.toml pins the channel (1.92.0); rustup honours it.
       - name: Cargo cache
         uses: actions/cache@v4
@@ -88,6 +95,10 @@ jobs:
 
   release:
     needs: build
+    # Publish whatever built: a green Linux leg should ship even while the
+    # Windows leg is still being sorted (the tensorrelay bundle falls back
+    # loudly per-platform when an asset is missing).
+    if: always() && !cancelled()
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -102,10 +113,17 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          shopt -s nullglob
+          zips=(dist/*.zip)
+          if [ ${#zips[@]} -eq 0 ]; then
+            echo "::error::no platform artifacts built; nothing to release"
+            exit 1
+          fi
+          echo "Publishing ${#zips[@]} asset(s): ${zips[*]}"
           TAG="tensorrelay-agent-${GITHUB_SHA}"
           gh release create "$TAG" \
             --repo "$GITHUB_REPOSITORY" \
             --title "TensorRelay Agent ${GITHUB_SHA:0:7}" \
             --notes "Harness binary for TensorRelay's Agent surface (ADR-0030), commit ${GITHUB_SHA}." \
-            dist/*.zip \
-          || gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber dist/*.zip
+            "${zips[@]}" \
+          || gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber "${zips[@]}"
