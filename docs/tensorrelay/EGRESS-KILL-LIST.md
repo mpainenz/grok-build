@@ -25,6 +25,26 @@ row, `removed` where cheap.
 | 8 | Plugin marketplace/registry fetch + install | `xai-grok-agent/src/plugins/{marketplace,registry,install_registry,manifest}.rs` | `marketplace\|install_registry` | identified |
 | 9 | Model-backend web search | `supports_backend_search`, `web_search` sampler → xAI search model | `backend_search\|web_search` | identified — dies naturally with the xAI cut; TensorRelay ships an MCP search server instead (off by default) |
 | 10 | Speech-to-text | `api.x.ai/v1/stt` ref | `/v1/stt` | identified |
+| 11 | Feedback / chat-proxy (trace + feedback) | `cli-chat-proxy.grok.com` default; `feedback=true` in data-capture config | `cli-chat-proxy\|CLI_CHAT_PROXY` | **verified 2026-07-17**: the only external surface still configured after #1/#2b were env-pinned; `GROK_CLI_CHAT_PROXY_BASE_URL=<loopback>` redirects it. |
+
+## Interim env lockdown (verified 2026-07-17, shippable)
+The harness's **own** hermeticity env knobs (used by its test suite) pin every
+egress surface to the loopback Node-Local Inference API. `tensorrelay-agent`'s
+supervisor (`client/src-tauri/src/agent.rs`) injects all of these:
+
+| Env | Effect |
+|---|---|
+| `XAI_API_KEY=tensorrelay-local` | satisfies the login gate (#1) |
+| `GROK_XAI_API_BASE_URL=<loopback>` | inference API base → loopback (#2) |
+| `GROK_MODELS_BASE_URL=<loopback>` | catalog prefetch → loopback (#2b) |
+| `GROK_CLI_CHAT_PROXY_BASE_URL=<loopback>` | feedback/trace → loopback (#11) |
+| `GROK_DISABLE_AUTOUPDATER=1` | no update check (#4) |
+
+Under this set, the initialize handshake makes **zero non-loopback
+connections**, and `telemetry`/`trace_upload` are already `false` by default.
+This is the shippable interim; source excision (rows above → `removed`) is the
+cleanup, not a ship blocker.
+
 
 Permitted egress (the allowlist, not part of the kill-list):
 - `http://127.0.0.1:<port>/v1` — the TensorRelay Node-Local Inference API

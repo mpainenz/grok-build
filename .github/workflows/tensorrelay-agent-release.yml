@@ -1,0 +1,102 @@
+name: TensorRelay Agent Release
+
+# Builds the harness binary for TensorRelay's Agent surface (ADR-0030) and
+# publishes it as a per-commit GitHub Release. The tensorrelay Steam build
+# fetches the asset for the pinned fork commit — the same fork-CI-publishes /
+# client-fetches pattern the llama.cpp fork uses for the Windows GPU executor.
+#
+# Assets, under tag `tensorrelay-agent-<sha>`:
+#   tensorrelay-agent-linux-x64.zip    -> tensorrelay-agent
+#   tensorrelay-agent-windows-x64.zip  -> tensorrelay-agent.exe
+
+on:
+  push:
+    branches: [main]
+    paths:
+      # Rebuild only when harness code (not the TensorRelay docs) changes.
+      - "crates/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "rust-toolchain.toml"
+      - ".github/workflows/tensorrelay-agent-release.yml"
+  workflow_dispatch: {}
+
+concurrency:
+  group: tr-agent-release-${{ github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            asset: tensorrelay-agent-linux-x64.zip
+            bin: xai-grok-pager
+            out: tensorrelay-agent
+          - os: windows-latest
+            asset: tensorrelay-agent-windows-x64.zip
+            bin: xai-grok-pager.exe
+            out: tensorrelay-agent.exe
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # rust-toolchain.toml pins the channel (1.92.0); rustup honours it.
+      - name: Cargo cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: tr-agent-${{ matrix.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: tr-agent-${{ matrix.os }}-
+
+      - name: Build harness (release)
+        run: cargo build --release -p xai-grok-pager-bin
+
+      - name: Package (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          cp "target/release/${{ matrix.bin }}" "${{ matrix.out }}"
+          zip -j "${{ matrix.asset }}" "${{ matrix.out }}"
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Copy-Item "target/release/${{ matrix.bin }}" "${{ matrix.out }}"
+          Compress-Archive -Path "${{ matrix.out }}" -DestinationPath "${{ matrix.asset }}" -Force
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: ${{ matrix.asset }}
+          retention-days: 3
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Publish release for this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="tensorrelay-agent-${GITHUB_SHA}"
+          gh release create "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "TensorRelay Agent ${GITHUB_SHA:0:7}" \
+            --notes "Harness binary for TensorRelay's Agent surface (ADR-0030), commit ${GITHUB_SHA}." \
+            dist/*.zip \
+          || gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber dist/*.zip
